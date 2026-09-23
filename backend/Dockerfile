@@ -2,10 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ ./
 
-CMD alembic upgrade head && python -m app.db.clear_data && python -m app.db.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
