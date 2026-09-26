@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw, Package } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import api from '../services/api';
 import type { Product } from '../types';
@@ -227,6 +227,26 @@ export default function ProductDetail() {
                   {formatPrice(product.old_price)}
                 </span>
               )}
+            </div>
+
+            {/* Omborda qolgan soni indicator */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                (product.stock_quantity ?? 0) > 5
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : (product.stock_quantity ?? 0) > 0
+                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                <Package size={14} />
+                <span>
+                  {(product.stock_quantity ?? 0) > 5
+                    ? `Omborda: ${product.stock_quantity} dona bor`
+                    : (product.stock_quantity ?? 0) > 0
+                    ? `⚠️ Omborda oz qoldi: ${product.stock_quantity} dona`
+                    : '🔴 Omborda tugagan (Buyurtma asosida)'}
+                </span>
+              </div>
             </div>
 
             {/* In-page Prominent Buy Action Buttons */}

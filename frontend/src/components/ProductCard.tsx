@@ -56,6 +56,18 @@ export default function ProductCard({ product }: ProductCardProps) {
         <h3 className="font-semibold text-gray-800 text-sm mb-1 line-clamp-2 leading-tight">
           {product.name}
         </h3>
+
+        <div className="mb-1">
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md ${
+            (product.stock_quantity ?? 0) > 0
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-rose-50 text-rose-700'
+          }`}>
+            {(product.stock_quantity ?? 0) > 0
+              ? `Omborda: ${product.stock_quantity} dona`
+              : 'Buyurtma asosida'}
+          </span>
+        </div>
         
         <div className="mt-auto pt-2 flex items-end justify-between">
           <div className="flex flex-col">

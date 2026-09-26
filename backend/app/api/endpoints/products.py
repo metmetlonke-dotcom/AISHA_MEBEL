@@ -75,4 +75,21 @@ async def create_product(
     await db.refresh(new_product)
     return new_product
 
-# ... Add other CRUD ...
+@router.put("/{product_id}", response_model=ProductResponse)
+async def update_product(
+    product_id: int,
+    product_in: ProductCreate,
+    db: AsyncSession = Depends(get_db),
+    current_admin = Depends(get_current_admin)
+):
+    result = await db.execute(select(Product).filter(Product.id == product_id, Product.is_deleted == False))
+    product = result.scalars().first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+        
+    for field, value in product_in.model_dump(exclude_unset=True).items():
+        setattr(product, field, value)
+        
+    await db.commit()
+    await db.refresh(product)
+    return product

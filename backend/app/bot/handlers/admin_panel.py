@@ -31,6 +31,7 @@ class EditProduct(StatesGroup):
     waiting_for_new_name = State()
     waiting_for_new_desc = State()
     waiting_for_new_photo = State()
+    waiting_for_new_stock = State()
 
 import os
 
@@ -425,14 +426,42 @@ async def product_details(callback: types.CallbackQuery):
         InlineKeyboardButton(text="📝 Narxi", callback_data=f"eprod_{prod_id}")
     )
     builder.row(
-        InlineKeyboardButton(text="🖼 Rasmini yangilash", callback_data=f"eprodphoto_{prod_id}"),
+        InlineKeyboardButton(text="📦 Ombordagi soni", callback_data=f"eprods_{prod_id}"),
+        InlineKeyboardButton(text="🖼 Rasmini yangilash", callback_data=f"eprodphoto_{prod_id}")
+    )
+    builder.row(
         InlineKeyboardButton(text="❌ O'chirish", callback_data=f"dprod_{prod_id}")
     )
     builder.row(InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"apcat_{prod.category_id}"))
     await callback.message.edit_text(
-        f"🛋 <b>Mahsulot:</b> {prod.name}\n<b>Narxi:</b> {prod.price:,.0f} so'm\n\nNimani o'zgartirmoqchisiz?",
+        f"🛋 <b>Mahsulot:</b> {prod.name}\n"
+        f"💰 <b>Narxi:</b> {prod.price:,.0f} so'm\n"
+        f"📦 <b>Omborda qolgani:</b> {prod.stock_quantity or 0} dona\n\n"
+        f"Nimani o'zgartirmoqchisiz?",
         reply_markup=builder.as_markup(), parse_mode="HTML"
     )
+
+@router.callback_query(F.data.startswith("eprods_"))
+async def edit_product_stock(callback: types.CallbackQuery, state: FSMContext):
+    prod_id = int(callback.data.split("_")[1])
+    await state.update_data(prod_id=prod_id)
+    await state.set_state(EditProduct.waiting_for_new_stock)
+    await callback.message.edit_text("Ombordagi yangi miqdorni (sonini) raqamda kiriting:", reply_markup=get_cancel_admin_keyboard())
+
+@router.message(EditProduct.waiting_for_new_stock)
+async def process_edit_product_stock(message: types.Message, state: FSMContext):
+    if not message.text.isdigit():
+        await message.answer("Faqat musbat raqam kiriting!")
+        return
+    data = await state.get_data()
+    new_stock = int(message.text)
+    async with AsyncSessionLocal() as session:
+        prod = await session.get(Product, data["prod_id"])
+        if prod:
+            prod.stock_quantity = new_stock
+            await session.commit()
+    await state.clear()
+    await message.answer(f"✅ Mahsulotning ombordagi miqdori <b>{new_stock} dona</b> qilib yangilandi!", reply_markup=get_main_admin_keyboard(), parse_mode="HTML")
 
 @router.callback_query(F.data.startswith("eprod_"))
 async def edit_product_price(callback: types.CallbackQuery, state: FSMContext):
