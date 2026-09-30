@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw, Package, Play, X, Video, ZoomIn, ZoomOut, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
@@ -18,7 +18,76 @@ export default function ProductDetail() {
   const [added, setAdded] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [showImageZoom, setShowImageZoom] = useState(false);
-  const [zoomScale, setZoomScale] = useState(1);
+  
+  // Touch Pinch-to-zoom & Drag-to-pan gesture state
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const touchStartRef = useRef<{ dist: number; scale: number; x: number; y: number; posX: number; posY: number } | null>(null);
+  const lastTapRef = useRef<number>(0);
+
+  const resetZoom = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      touchStartRef.current = { dist, scale, x: 0, y: 0, posX: position.x, posY: position.y };
+    } else if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (scale > 1.1) {
+          resetZoom();
+        } else {
+          setScale(2.5);
+        }
+      }
+      lastTapRef.current = now;
+
+      touchStartRef.current = {
+        dist: 0,
+        scale,
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        posX: position.x,
+        posY: position.y,
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    if (e.touches.length === 2 && touchStartRef.current.dist > 0) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const newScale = Math.min(Math.max(touchStartRef.current.scale * (currentDist / touchStartRef.current.dist), 1), 4);
+      setScale(newScale);
+      if (newScale === 1) {
+        setPosition({ x: 0, y: 0 });
+      }
+    } else if (e.touches.length === 1 && scale > 1) {
+      const deltaX = e.touches[0].clientX - touchStartRef.current.x;
+      const deltaY = e.touches[0].clientY - touchStartRef.current.y;
+      setPosition({
+        x: touchStartRef.current.posX + deltaX,
+        y: touchStartRef.current.posY + deltaY,
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+    if (scale <= 1.05) {
+      resetZoom();
+    }
+  };
 
   // Quick buy state
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -179,29 +248,38 @@ export default function ProductDetail() {
       </div>
 
       <div className="pt-16">
-        {/* Main Image - Natural Aspect Ratio (No Cropping, Clickable for Zoom) */}
+        {/* Main Image - Natural Aspect Ratio (Touch Pinch Zoom & Tap Fullscreen) */}
         <div 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
           onClick={() => {
-            setZoomScale(1);
-            setShowImageZoom(true);
+            if (scale === 1) {
+              resetZoom();
+              setShowImageZoom(true);
+            }
           }}
-          className="relative min-h-[280px] max-h-[70vh] bg-slate-900/5 flex items-center justify-center border-b border-gray-100 overflow-hidden p-2 cursor-pointer group"
+          className="relative min-h-[280px] max-h-[70vh] bg-slate-900/5 flex items-center justify-center border-b border-gray-100 overflow-hidden p-2 cursor-pointer group touch-none"
         >
           <img
             src={images[activeImageIndex]?.image_url}
             alt={product.name}
-            className="w-full max-h-[65vh] object-contain rounded-xl drop-shadow-sm transition-all duration-300 group-hover:scale-[1.02]"
+            style={{
+              transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+              transition: scale === 1 ? 'transform 0.2s ease-out' : 'none'
+            }}
+            className="w-full max-h-[65vh] object-contain rounded-xl drop-shadow-sm select-none"
           />
           {product.old_price && (
-            <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">
+            <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10 pointer-events-none">
               CHEGIRMA
             </div>
           )}
 
           {/* Zoom hint badge */}
-          <div className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-all">
+          <div className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-all pointer-events-none">
             <Maximize2 size={13} />
-            <span>Kattalashtirish</span>
+            <span>{scale > 1 ? `${scale.toFixed(1)}x` : 'Kattalashtirish'}</span>
           </div>
         </div>
 
@@ -614,21 +692,25 @@ export default function ProductDetail() {
             <div className="flex items-center gap-2">
               {/* Zoom Controls */}
               <button
-                onClick={() => setZoomScale((s) => Math.min(s + 0.5, 3))}
+                onClick={() => setScale((s) => Math.min(s + 0.5, 4))}
                 className="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center active:scale-95 transition-all"
                 title="Yaqinlashtirish"
               >
                 <ZoomIn size={18} />
               </button>
               <button
-                onClick={() => setZoomScale((s) => Math.max(s - 0.5, 1))}
+                onClick={() => setScale((s) => {
+                  const ns = Math.max(s - 0.5, 1);
+                  if (ns === 1) setPosition({ x: 0, y: 0 });
+                  return ns;
+                })}
                 className="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center active:scale-95 transition-all"
                 title="Uzoqlashtirish"
               >
                 <ZoomOut size={18} />
               </button>
               <button
-                onClick={() => setZoomScale(1)}
+                onClick={resetZoom}
                 className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold active:scale-95 transition-all"
               >
                 1x
@@ -637,7 +719,7 @@ export default function ProductDetail() {
               {/* Close Button */}
               <button
                 onClick={() => {
-                  setZoomScale(1);
+                  resetZoom();
                   setShowImageZoom(false);
                 }}
                 className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center active:scale-90 transition-all ml-2"
@@ -648,12 +730,17 @@ export default function ProductDetail() {
           </div>
 
           {/* Interactive Zoomable Image Area */}
-          <div className="flex-1 flex items-center justify-center relative overflow-auto p-2">
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            className="flex-1 flex items-center justify-center relative overflow-hidden p-2 touch-none select-none"
+          >
             {images.length > 1 && (
               <>
                 <button
                   onClick={() => {
-                    setZoomScale(1);
+                    resetZoom();
                     setActiveImageIndex((i) => (i > 0 ? i - 1 : images.length - 1));
                   }}
                   className="absolute left-2 z-30 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md active:scale-90 transition-all"
@@ -662,7 +749,7 @@ export default function ProductDetail() {
                 </button>
                 <button
                   onClick={() => {
-                    setZoomScale(1);
+                    resetZoom();
                     setActiveImageIndex((i) => (i < images.length - 1 ? i + 1 : 0));
                   }}
                   className="absolute right-2 z-30 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md active:scale-90 transition-all"
@@ -672,20 +759,22 @@ export default function ProductDetail() {
               </>
             )}
 
-            <div className="w-full h-full flex items-center justify-center overflow-auto">
+            <div className="w-full h-full flex items-center justify-center">
               <img
                 src={images[activeImageIndex]?.image_url}
                 alt={product?.name}
-                style={{ transform: `scale(${zoomScale})` }}
-                className="max-h-[82vh] max-w-full object-contain transition-transform duration-200 cursor-zoom-in rounded-xl"
-                onClick={() => setZoomScale((s) => (s >= 2.5 ? 1 : s + 0.75))}
+                style={{
+                  transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+                  transition: scale === 1 ? 'transform 0.2s ease-out' : 'none'
+                }}
+                className="max-h-[82vh] max-w-full object-contain rounded-xl select-none"
               />
             </div>
           </div>
 
           {/* Bottom Hint */}
           <div className="text-center py-2 text-gray-400 text-xs font-medium border-t border-white/10">
-            💡 Rasmni ustiga bosib yaqinlashtirishingiz (+ / -) mumkin
+            💡 Rasmni 2 ta barmoq bilan ushlab yaqinlashtirishingiz va surishingiz mumkin
           </div>
         </div>
       )}
