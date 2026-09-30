@@ -1,8 +1,10 @@
+import os
 import asyncio
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.api.router import api_router
@@ -13,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 os.makedirs("uploads/products", exist_ok=True)
 os.makedirs("uploads/videos", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Auto-migrate DB schema if new columns added
 @asynccontextmanager
@@ -41,11 +42,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # TODO: Set to specific domains in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/health")
 async def health_check():
