@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw, Package, Play, X, Video } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw, Package, Play, X, Video, ZoomIn, ZoomOut, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import api from '../services/api';
 import type { Product } from '../types';
@@ -17,6 +17,8 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showImageZoom, setShowImageZoom] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
 
   // Quick buy state
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -177,18 +179,30 @@ export default function ProductDetail() {
       </div>
 
       <div className="pt-16">
-        {/* Main Image - Natural Aspect Ratio (No Cropping) */}
-        <div className="relative min-h-[280px] max-h-[70vh] bg-slate-900/5 flex items-center justify-center border-b border-gray-100 overflow-hidden p-2">
+        {/* Main Image - Natural Aspect Ratio (No Cropping, Clickable for Zoom) */}
+        <div 
+          onClick={() => {
+            setZoomScale(1);
+            setShowImageZoom(true);
+          }}
+          className="relative min-h-[280px] max-h-[70vh] bg-slate-900/5 flex items-center justify-center border-b border-gray-100 overflow-hidden p-2 cursor-pointer group"
+        >
           <img
             src={images[activeImageIndex]?.image_url}
             alt={product.name}
-            className="w-full max-h-[65vh] object-contain rounded-xl drop-shadow-sm transition-all duration-300"
+            className="w-full max-h-[65vh] object-contain rounded-xl drop-shadow-sm transition-all duration-300 group-hover:scale-[1.02]"
           />
           {product.old_price && (
             <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">
               CHEGIRMA
             </div>
           )}
+
+          {/* Zoom hint badge */}
+          <div className="absolute bottom-3 right-3 bg-black/60 hover:bg-black/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-md active:scale-95 transition-all">
+            <Maximize2 size={13} />
+            <span>Kattalashtirish</span>
+          </div>
         </div>
 
         {/* Thumbnail gallery if multiple */}
@@ -543,31 +557,32 @@ export default function ProductDetail() {
         </div>
       )}
 
-      {/* Video Modal */}
+      {/* Video Modal - Fullscreen with Prominent Top Close Button */}
       {showVideoModal && product?.video_url && (
-        <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-gray-900 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-800 flex flex-col relative animate-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/90">
-              <div className="flex items-center gap-2 text-white font-semibold text-sm">
-                <Video size={18} className="text-red-500" />
-                <span className="truncate max-w-[220px]">{product.name} - Qisqa video</span>
-              </div>
-              <button
-                onClick={() => setShowVideoModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center active:scale-90 transition-all"
-              >
-                <X size={18} />
-              </button>
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-2 md:p-6 animate-in fade-in duration-200">
+          {/* Top Header & Close X Button */}
+          <div className="fixed top-4 right-4 z-[220]">
+            <button
+              onClick={() => setShowVideoModal(false)}
+              className="w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md flex items-center justify-center active:scale-90 transition-all shadow-xl border border-white/20"
+              title="Yopish"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center w-full max-w-4xl mx-auto pt-12 pb-4">
+            <div className="w-full flex items-center gap-2 text-white font-bold text-base mb-3 px-2">
+              <Video size={20} className="text-red-500" />
+              <span className="truncate">{product.name} - Video obzor</span>
             </div>
 
-            {/* Modal Video Player */}
-            <div className="p-2 bg-black flex items-center justify-center min-h-[300px]">
+            <div className="w-full flex-1 flex items-center justify-center bg-black/80 rounded-3xl overflow-hidden border border-white/10 shadow-2xl relative">
               {product.video_url.includes('youtube.com') || product.video_url.includes('youtu.be') ? (
                 <iframe
                   src={product.video_url.replace('watch?v=', 'embed/')}
                   title={product.name}
-                  className="w-full aspect-video rounded-xl"
+                  className="w-full aspect-video rounded-2xl"
                   allowFullScreen
                 />
               ) : (
@@ -576,10 +591,101 @@ export default function ProductDetail() {
                   controls
                   autoPlay
                   playsInline
-                  className="w-full max-h-[70vh] rounded-xl object-contain"
+                  className="w-full max-h-[80vh] h-full object-contain rounded-2xl"
                 />
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Zoom Lightbox Modal - Fullscreen Touch & Zoom */}
+      {showImageZoom && (
+        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex flex-col justify-between p-3 select-none animate-in fade-in duration-200">
+          {/* Top Controls Bar */}
+          <div className="flex items-center justify-between px-2 pt-2 pb-1 z-[210] border-b border-white/10">
+            <div className="text-white text-xs font-semibold flex items-center gap-2">
+              <span className="bg-white/20 px-2.5 py-1 rounded-lg">
+                {activeImageIndex + 1} / {images.length}
+              </span>
+              <span className="truncate max-w-[180px] text-gray-300">{product?.name}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Zoom Controls */}
+              <button
+                onClick={() => setZoomScale((s) => Math.min(s + 0.5, 3))}
+                className="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center active:scale-95 transition-all"
+                title="Yaqinlashtirish"
+              >
+                <ZoomIn size={18} />
+              </button>
+              <button
+                onClick={() => setZoomScale((s) => Math.max(s - 0.5, 1))}
+                className="w-9 h-9 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center active:scale-95 transition-all"
+                title="Uzoqlashtirish"
+              >
+                <ZoomOut size={18} />
+              </button>
+              <button
+                onClick={() => setZoomScale(1)}
+                className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold active:scale-95 transition-all"
+              >
+                1x
+              </button>
+
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setZoomScale(1);
+                  setShowImageZoom(false);
+                }}
+                className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center active:scale-90 transition-all ml-2"
+              >
+                <X size={22} />
+              </button>
+            </div>
+          </div>
+
+          {/* Interactive Zoomable Image Area */}
+          <div className="flex-1 flex items-center justify-center relative overflow-auto p-2">
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={() => {
+                    setZoomScale(1);
+                    setActiveImageIndex((i) => (i > 0 ? i - 1 : images.length - 1));
+                  }}
+                  className="absolute left-2 z-30 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md active:scale-90 transition-all"
+                >
+                  <ChevronLeft size={24} />
+                </button>
+                <button
+                  onClick={() => {
+                    setZoomScale(1);
+                    setActiveImageIndex((i) => (i < images.length - 1 ? i + 1 : 0));
+                  }}
+                  className="absolute right-2 z-30 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center backdrop-blur-md active:scale-90 transition-all"
+                >
+                  <ChevronRight size={24} />
+                </button>
+              </>
+            )}
+
+            <div className="w-full h-full flex items-center justify-center overflow-auto">
+              <img
+                src={images[activeImageIndex]?.image_url}
+                alt={product?.name}
+                style={{ transform: `scale(${zoomScale})` }}
+                className="max-h-[82vh] max-w-full object-contain transition-transform duration-200 cursor-zoom-in rounded-xl"
+                onClick={() => setZoomScale((s) => (s >= 2.5 ? 1 : s + 0.75))}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Hint */}
+          <div className="text-center py-2 text-gray-400 text-xs font-medium border-t border-white/10">
+            💡 Rasmni ustiga bosib yaqinlashtirishingiz (+ / -) mumkin
           </div>
         </div>
       )}
