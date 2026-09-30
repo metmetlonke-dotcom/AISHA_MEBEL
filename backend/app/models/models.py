@@ -69,6 +69,7 @@ class Product(Base):
     colors = Column(String, nullable=True)
     
     stock_quantity = Column(Integer, default=0)
+    video_url = Column(String, nullable=True)
     is_new = Column(Boolean, default=False)
     is_popular = Column(Boolean, default=False)
     is_promotion = Column(Boolean, default=False)

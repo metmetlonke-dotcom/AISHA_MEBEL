@@ -24,6 +24,7 @@ export interface Product {
   material?: string;
   colors?: string;
   stock_quantity?: number;
+  video_url?: string;
   is_new?: boolean;
   is_popular?: boolean;
   is_promotion?: boolean;

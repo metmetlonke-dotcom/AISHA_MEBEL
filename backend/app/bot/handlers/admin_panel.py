@@ -32,6 +32,7 @@ class EditProduct(StatesGroup):
     waiting_for_new_desc = State()
     waiting_for_new_photo = State()
     waiting_for_new_stock = State()
+    waiting_for_new_video = State()
 
 import os
 
@@ -430,16 +431,71 @@ async def product_details(callback: types.CallbackQuery):
         InlineKeyboardButton(text="🖼 Rasmini yangilash", callback_data=f"eprodphoto_{prod_id}")
     )
     builder.row(
+        InlineKeyboardButton(text="📹 Videoni yangilash", callback_data=f"eprodvideo_{prod_id}"),
         InlineKeyboardButton(text="❌ O'chirish", callback_data=f"dprod_{prod_id}")
     )
     builder.row(InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"apcat_{prod.category_id}"))
+    
+    video_status = "Mavjud 🎬" if prod.video_url else "Mavjud emas"
     await callback.message.edit_text(
         f"🛋 <b>Mahsulot:</b> {prod.name}\n"
         f"💰 <b>Narxi:</b> {prod.price:,.0f} so'm\n"
-        f"📦 <b>Omborda qolgani:</b> {prod.stock_quantity or 0} dona\n\n"
+        f"📦 <b>Omborda qolgani:</b> {prod.stock_quantity or 0} dona\n"
+        f"📹 <b>Video:</b> {video_status}\n\n"
         f"Nimani o'zgartirmoqchisiz?",
         reply_markup=builder.as_markup(), parse_mode="HTML"
     )
+
+@router.callback_query(F.data.startswith("eprodvideo_"))
+async def edit_product_video(callback: types.CallbackQuery, state: FSMContext):
+    prod_id = int(callback.data.split("_")[1])
+    await state.update_data(prod_id=prod_id)
+    await state.set_state(EditProduct.waiting_for_new_video)
+    await callback.message.edit_text(
+        "📹 <b>Mahsulot videosini yuboring:</b>\n\n"
+        "Telegram orqali video fayl yuborishingiz yoki video havolasini (YouTube/MP4 link) matn ko'rinishida yozib yuborishingiz mumkin:",
+        reply_markup=get_cancel_admin_keyboard(),
+        parse_mode="HTML"
+    )
+
+@router.message(EditProduct.waiting_for_new_video, F.video)
+async def process_edit_product_video_file(message: types.Message, state: FSMContext):
+    video_file_id = message.video.file_id
+    import uuid
+    os.makedirs("uploads/videos", exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.mp4"
+    local_file_path = os.path.join("uploads/videos", filename)
+    
+    try:
+        file_obj = await message.bot.get_file(video_file_id)
+        await message.bot.download_file(file_obj.file_path, local_file_path)
+        video_url = f"https://aishamebel-production.up.railway.app/uploads/videos/{filename}"
+    except Exception as e:
+        file_obj = await message.bot.get_file(video_file_id)
+        video_url = f"https://api.telegram.org/file/bot{settings.BOT_TOKEN}/{file_obj.file_path}"
+        
+    data = await state.get_data()
+    async with AsyncSessionLocal() as session:
+        prod = await session.get(Product, data["prod_id"])
+        if prod:
+            prod.video_url = video_url
+            await session.commit()
+            
+    await state.clear()
+    await message.answer("✅ Mahsulotning qisqa videosi muvaffaqiyatli saqlandi va biriktirildi!", reply_markup=get_main_admin_keyboard())
+
+@router.message(EditProduct.waiting_for_new_video, F.text)
+async def process_edit_product_video_text(message: types.Message, state: FSMContext):
+    video_url = message.text.strip()
+    data = await state.get_data()
+    async with AsyncSessionLocal() as session:
+        prod = await session.get(Product, data["prod_id"])
+        if prod:
+            prod.video_url = video_url
+            await session.commit()
+            
+    await state.clear()
+    await message.answer("✅ Mahsulot video havolasi saqlandi!", reply_markup=get_main_admin_keyboard())
 
 @router.callback_query(F.data.startswith("eprods_"))
 async def edit_product_stock(callback: types.CallbackQuery, state: FSMContext):

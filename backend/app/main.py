@@ -11,12 +11,25 @@ from app.bot.main import start_bot
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+os.makedirs("uploads/products", exist_ok=True)
+os.makedirs("uploads/videos", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Auto-migrate DB schema if new columns added
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start bot polling in the background
+    from app.db.database import AsyncSessionLocal
+    from sqlalchemy import text
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("ALTER TABLE products ADD COLUMN video_url VARCHAR;"))
+            await session.commit()
+            logger.info("Successfully added video_url column to products table.")
+    except Exception as e:
+        logger.info("Column video_url already exists or migration skipped.")
+
     bot_task = asyncio.create_task(start_bot())
     yield
-    # Cleanup on shutdown
     bot_task.cancel()
 
 app = FastAPI(
@@ -33,12 +46,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-import os
-from fastapi.staticfiles import StaticFiles
-
-os.makedirs("uploads/products", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/health")
 async def health_check():

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw, Package } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Check, ShieldCheck, Truck, Wrench, Minus, Plus, RotateCw, Package, Play, X, Video } from 'lucide-react';
 import WebApp from '@twa-dev/sdk';
 import api from '../services/api';
 import type { Product } from '../types';
@@ -16,6 +16,7 @@ export default function ProductDetail() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   // Quick buy state
   const [showBuyModal, setShowBuyModal] = useState(false);
@@ -176,15 +177,15 @@ export default function ProductDetail() {
       </div>
 
       <div className="pt-16">
-        {/* Main Image */}
-        <div className="relative aspect-square bg-white border-b border-gray-100">
+        {/* Main Image - Natural Aspect Ratio (No Cropping) */}
+        <div className="relative min-h-[280px] max-h-[70vh] bg-slate-900/5 flex items-center justify-center border-b border-gray-100 overflow-hidden p-2">
           <img
             src={images[activeImageIndex]?.image_url}
             alt={product.name}
-            className="w-full h-full object-cover"
+            className="w-full max-h-[65vh] object-contain rounded-xl drop-shadow-sm transition-all duration-300"
           />
           {product.old_price && (
-            <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+            <div className="absolute top-4 left-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">
               CHEGIRMA
             </div>
           )}
@@ -211,11 +212,23 @@ export default function ProductDetail() {
         <div className="p-4 space-y-4">
           {/* Title & Price */}
           <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-3">
-            {product.category && (
-              <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
-                {product.category.icon} {product.category.name}
-              </span>
-            )}
+            <div className="flex items-center justify-between gap-2">
+              {product.category && (
+                <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
+                  {product.category.icon} {product.category.name}
+                </span>
+              )}
+
+              {product.video_url && (
+                <button
+                  onClick={() => setShowVideoModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all ml-auto"
+                >
+                  <Play size={14} className="fill-red-600 text-red-600" />
+                  <span>Qisqa video</span>
+                </button>
+              )}
+            </div>
             <h1 className="text-xl font-bold text-gray-900 leading-snug">{product.name}</h1>
             
             <div className="flex items-baseline gap-2 pt-1">
@@ -526,6 +539,47 @@ export default function ProductDetail() {
             >
               Katalogga o'tish
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Video Modal */}
+      {showVideoModal && product?.video_url && (
+        <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-gray-900 rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-gray-800 flex flex-col relative animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/90">
+              <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                <Video size={18} className="text-red-500" />
+                <span className="truncate max-w-[220px]">{product.name} - Qisqa video</span>
+              </div>
+              <button
+                onClick={() => setShowVideoModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center active:scale-90 transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Video Player */}
+            <div className="p-2 bg-black flex items-center justify-center min-h-[300px]">
+              {product.video_url.includes('youtube.com') || product.video_url.includes('youtu.be') ? (
+                <iframe
+                  src={product.video_url.replace('watch?v=', 'embed/')}
+                  title={product.name}
+                  className="w-full aspect-video rounded-xl"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={product.video_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full max-h-[70vh] rounded-xl object-contain"
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

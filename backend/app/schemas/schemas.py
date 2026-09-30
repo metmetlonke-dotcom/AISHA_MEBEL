@@ -74,6 +74,7 @@ class ProductBase(BaseModel):
     material: Optional[str] = None
     colors: Optional[str] = None
     stock_quantity: int = 0
+    video_url: Optional[str] = None
     is_new: bool = False
     is_popular: bool = False
     is_promotion: bool = False
